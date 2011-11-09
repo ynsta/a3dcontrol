@@ -1,0 +1,6 @@
+env = Environment(CCFLAGS = ['-Wall'])
+
+env.Program('i2crecorder',
+            'src/i2crecorder.c',
+            LIBS=['ftdi', ])
+
