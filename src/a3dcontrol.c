@@ -1,3 +1,23 @@
+/*
+ * a3dcontrol: Acer Integrated 3D vision emitter activator.
+ * Copyright (C) 2011 Stany MARCEL <stanypub@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
+ */
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,8 +27,8 @@
 #include <time.h>
 #include <ctype.h>
 
-#define VERSION		"0.1"
-#define COPYRIGHT	"(C)2011 Stany MARCEL <stanypub@gmail.com>"
+#define VERSION		"0.2"
+#define COPYRIGHT	"Copyright (C) 2011 Stany MARCEL <stanypub@gmail.com>"
 
 char acmd1[] = { 0x51, 0x81, 0x59, 0xe7 };
 char acmd2[] = { 0x51, 0x84, 0x03, 0xe0, 0x00, 0x01, 0x59 };
@@ -324,6 +344,10 @@ static void help(void)
 static void version(void)
 {
 	printf("a3dcontrol v%s %s\n", VERSION, COPYRIGHT);
+	puts("a3dcontrol comes with ABSOLUTELY NO WARRANTY."
+	     " This is free software,\n"
+	     "and you are welcome to redistribute it under"
+	     " certain conditions.");
 }
 
 
