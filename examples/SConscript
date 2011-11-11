@@ -1,0 +1,6 @@
+env = Environment(CCFLAGS = ['-Wall'])
+
+env.Program('pulsar',
+            'src/pulsar.c',
+            LIBS=['GL', 'GLU', 'glut' ])
+
