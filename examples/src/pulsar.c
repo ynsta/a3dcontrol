@@ -821,7 +821,7 @@ void HandleReshape(int w, int h)
 */
 void GiveUsage(char *cmd)
 {
-	fprintf(stderr, "Usage: %s [-h] [-f] [-s] [-c] [-q n]\n", cmd);
+	fprintf(stderr, "Usage: %s [-h] [-f] [-s N] [-c] [-q n]\n", cmd);
 	fprintf(stderr, "          -h   this text\n");
 	fprintf(stderr, "          -f   full screen\n");
 	fprintf(stderr, "          -s N stereo mode [0: none, 1: quad buffer, 2: vsync]\n");
