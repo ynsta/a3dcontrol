@@ -49,6 +49,8 @@ char buf[256];
 char zero = 0;
 char eighty = 0x80;
 
+int verbose = 0;
+
 /* Activation i2c messages */
 struct i2c_msg msg_aw1[] = {
 	{
@@ -104,23 +106,14 @@ struct i2c_msg msg_ar2[] = {
 	},
 };
 
-struct i2c_msg refresh_msg[] = {
-	{
-		.addr  = 0x7d,
-		.flags = 0,
-		.len   = 1,
-		.buf   = &zero,
-	},
-};
-
 /* Modes i2c messages  */
-struct i2c_msg start_msg[] = {
-	{
-		.addr  = 0x50,
-		.flags = I2C_M_RD,
-		.len   = 1,
-		.buf   = buf,
-	},
+struct i2c_msg rsync_msg[] = {
+	/* { */
+	/* 	.addr  = 0x50, */
+	/* 	.flags = I2C_M_RD, */
+	/* 	.len   = 1, */
+	/* 	.buf   = buf, */
+	/* }, */
 	{
 		.addr  = 0x50,
 		.flags = 0,
@@ -254,43 +247,33 @@ void printbuf(char* buf, int len)
 }
 
 
-static int activate(int fd, unsigned long nb_refresh)
+static int activate(int fd)
 {
-	unsigned long i;
-
-	i2c_rw(fd, &start_msg[0], sizeof(start_msg), "START");
-	printf("START: ");
-	printbuf(buf, sizeof(buf));
-
-	i2c_rw(fd, &edid_msg[0], sizeof(edid_msg), "EDID");
-	printf("EDID : ");
-	printbuf(buf, sizeof(buf));
-
-	us(70000);
-
 	do {
 		do {
 			i2c_rw(fd, &msg_aw1[0], sizeof(msg_aw1), "ACTIVATE W 1");
-			us(50000);
+			us(1000);
 			i2c_rw(fd, &msg_ar1[0], sizeof(msg_ar1), "ACTIVATE R 1");
-			us(250000);
-			printf("ACK1 : ");
-			printbuf(buf, sizeof(aack1) + 1);
+			if (verbose)
+			{
+				printf("ACK1 : ");
+				printbuf(buf, sizeof(aack1) + 1);
+			}
 		}
 		while (buf_neq(aack1, buf, sizeof(aack1), sizeof(aack1) + 1));
 
 		i2c_rw(fd, &msg_aw2[0], 1, "ACTIVATE W 2");
-		us(50000);
-
 		do {
 			i2c_rw(fd, &msg_aw3[0], sizeof(msg_aw3), "ACTIVATE W 3");
-			us(50000);
+			us(500000);
 			i2c_rw(fd, &msg_aw4[0], sizeof(msg_aw4), "ACTIVATE W 4");
-			us(100000);
+			us(1000);
 			i2c_rw(fd, &msg_ar2[0], sizeof(msg_ar2), "ACTIVATE R 2");
-			us(50000);
-			printf("ACK2 : ");
-			printbuf(buf, sizeof(aack2) + 1);
+			if (verbose)
+			{
+				printf("ACK2 : ");
+				printbuf(buf, sizeof(aack2) + 1);
+			}
 			if (!buf_neq(aack1, buf, sizeof(aack1), sizeof(aack1) + 1))
 			{
 				buf[1] = 0xff;
@@ -300,15 +283,6 @@ static int activate(int fd, unsigned long nb_refresh)
 		while (buf_neq(aack2, buf, sizeof(aack2), sizeof(aack2) + 1));
 	} while (buf_neq(aack2, buf, sizeof(aack2), sizeof(aack2) + 1));
 
-	us(150000);
-
-	i2c_rw(fd, &refresh_msg[0], sizeof(refresh_msg), "REFRESH");
-
-	for (i = 0; i < nb_refresh; i++)
-	{
-		us(1000000);
-		i2c_rw(fd, &refresh_msg[0], sizeof(refresh_msg), "REFRESH");
-	}
 	return 0;
 }
 
@@ -316,13 +290,15 @@ static int deactivate(int fd)
 {
 	do {
 		i2c_rw(fd, &msg_dw1[0], sizeof(msg_dw1), "DEACTIVATE W 1");
-		us(50000);
+		us(1000);
 		i2c_rw(fd, &msg_dw2[0], sizeof(msg_dw2), "DEACTIVATE W 2");
-		us(100000);
+		us(500000);
 		i2c_rw(fd, &msg_dr1[0], sizeof(msg_dr1), "DEACTIVATE R 1");
-		us(50000);
-		printf("ACK : ");
-		printbuf(buf, sizeof(dack1) + 1);
+		if (verbose)
+		{
+			printf("ACK : ");
+			printbuf(buf, sizeof(dack1) + 1);
+		}
 	} while (buf_neq(dack1, buf, sizeof(dack1), sizeof(dack1) + 1));
 
 	return 0;
@@ -330,15 +306,18 @@ static int deactivate(int fd)
 
 static void help(void)
 {
-	puts("a3dcontrol [-d] [-r N] [-h] /dev/i2c-N\n"
+	puts("a3dcontrol [-s] [-e] [-a|-d] [-l] [-h] /dev/i2c-N\n"
 	     "	Acer Integrated 3D vision emitter activator.\n"
 	     "	Use DVI i2c ('modprobe i2c-dev' for nvidia proprietary driver).\n"
 	     "	Require 3D DVI mode detected by screen.\n"
 	     "\n"
 	     "	-h	: Print this help and exit\n"
 	     "	-v	: Print the version and exit\n"
-	     "	-d	: Deactivate instead of Activate\n"
-	     "	-r N	: Activation refresh number (defaut 0)");
+	     "	-a	: Activate IR\n"
+	     "	-d	: Deactivate IR\n"
+	     "	-l	: Print logs\n"
+	     "	-s	: Send Right Eye sync frame\n"
+	     "	-e	: Read EDID\n");
 }
 
 static void version(void)
@@ -356,11 +335,13 @@ int main(int argc, char ** argv)
 	int c;
 	int fd;
 	int dflag = 0;
-	unsigned long r = 0;
+	int aflag = 0;
+	int eflag = 0;
+	int sflag = 0;
 
 	opterr = 0;
 
-	while ((c = getopt (argc, argv, "hvdn:")) != -1)
+	while ((c = getopt (argc, argv, "hvadlse")) != -1)
 	{
 		switch (c)
 		{
@@ -370,19 +351,23 @@ int main(int argc, char ** argv)
 		case 'v':
 			version();
 			return 0;
+		case 'a':
+			aflag = 1;
+			break;
 		case 'd':
 			dflag = 1;
 			break;
-		case 'r':
-			r = strtoul(optarg, 0, 10);
-			break;
+		case 'l':
+			verbose = 1;
+			break ;
+		case 's':
+			sflag = 1;
+			break ;
+		case 'e':
+			eflag = 1;
+			break ;
 		case '?':
-			if (optopt == 'c') {
-				fprintf(stderr,
-					"Option -%c requires an argument.\n",
-					optopt);
-			}
-			else if (isprint(optopt)) {
+			if (isprint(optopt)) {
 				fprintf(stderr,
 					"Unknown option `-%c'.\n",
 					optopt);
@@ -399,6 +384,8 @@ int main(int argc, char ** argv)
 	}
 
 
+
+
 	if (optind != argc -1)
 	{
 		help();
@@ -412,13 +399,32 @@ int main(int argc, char ** argv)
 		return 2;
 	}
 
+
+	if (sflag)
+	{
+		i2c_rw(fd, &rsync_msg[0], sizeof(rsync_msg), "RSYNC");
+		if (verbose)
+		{
+			printf("RSYNC: ");
+			printbuf(buf, sizeof(buf));
+		}
+	}
+
+	if (eflag)
+	{
+		i2c_rw(fd, &edid_msg[0], sizeof(edid_msg), "EDID");
+		printf("EDID : ");
+		printbuf(buf, sizeof(buf));
+		us(1000000);
+	}
+
 	if (dflag)
 	{
 		deactivate(fd);
 	}
-	else
+	else if (aflag)
 	{
-		activate(fd, r);
+		activate(fd);
 	}
 
 
